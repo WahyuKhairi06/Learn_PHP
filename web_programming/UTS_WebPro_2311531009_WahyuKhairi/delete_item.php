@@ -8,16 +8,17 @@ if (!isset($_SESSION["loggedin_user"])) {
     exit;
 }
 
-// Cek apakah ada ID yang dikirim
+//  Cek apakah ada parameter ID yang dikirimkan di URL:
 if (!isset($_GET['id']) || empty($_GET['id'])) {
     header("Location: dashboard.php");
     exit;
 }
 
+// Mendapatkan ID item dari URL:
 $itemId = (int)$_GET['id'];
 
-// Ambil semua file yang terkait dengan item
-$fileStmt = $conn->prepare("SELECT filepath FROM files WHERE item_id = :item_id");
+// Ambil semua file terkait dengan item yang ingin dihapus:
+$fileStmt = $conn->prepare("SELECT filepath FROM files WHERE item_id = :item_id"); //Membuat query SQL untuk memilih kolom filepath dari tabel files berdasarkan item_id. :item_id adalah placeholder yang akan digantikan dengan nilai $itemId.
 $fileStmt->execute(['item_id' => $itemId]);
 $files = $fileStmt->fetchAll(PDO::FETCH_ASSOC);
 

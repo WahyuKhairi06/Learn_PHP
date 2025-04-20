@@ -14,14 +14,17 @@ if (!isset($_GET['id'])) {
     exit;
 }
 
+// Cek apakah parameter ID item ada:
 $itemId = $_GET['id'];
 $userId = $_SESSION["loggedin_user"]["id"];
 
 // Ambil data item
+// Mengambil Data Item dari Database:
 $stmt = $conn->prepare("SELECT * FROM items WHERE id = :id AND user_id = :user_id");
 $stmt->execute(['id' => $itemId, 'user_id' => $userId]);
 $item = $stmt->fetch(PDO::FETCH_ASSOC);
 
+// Menampilkan Pesan jika Item Tidak Ditemukan:
 if (!$item) {
     echo "Item tidak ditemukan atau Anda tidak berhak mengaksesnya.";
     exit;
@@ -35,6 +38,9 @@ $files = $fileStmt->fetchAll(PDO::FETCH_ASSOC);
 // Update item
 if ($_SERVER["REQUEST_METHOD"] == "POST") {
     // Update title dan description
+    // Pengecekan metode HTTP POST: Mengecek apakah permintaan yang diterima adalah metode POST, yang berarti form telah disubmit.
+   
+    // Update Judu dan Deskripsi
     if (isset($_POST['update_item'])) {
         $title = $_POST['title'];
         $description = $_POST['description'];
@@ -48,13 +54,15 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
         ]);
 
         // Upload file baru jika ada
+        // Jika ada file baru yang diupload melalui form, setiap file akan diproses untuk disimpan ke folder uploads/ 
+        // dengan nama file yang unik. File yang diupload kemudian disimpan ke dalam database (files) dengan ID item yang sesuai.
         if (!empty($_FILES['new_files']['name'][0])) {
             foreach ($_FILES['new_files']['tmp_name'] as $key => $tmp_name) {
                 $filename = basename($_FILES['new_files']['name'][$key]);
                 $filepath = 'uploads/' . uniqid() . '_' . $filename;
                 move_uploaded_file($tmp_name, $filepath);
 
-                // Simpan ke database
+                // Simpan ke database 
                 $insertFileStmt = $conn->prepare("INSERT INTO files (item_id, filename, filepath) VALUES (:item_id, :filename, :filepath)");
                 $insertFileStmt->execute([
                     'item_id' => $itemId,
@@ -68,9 +76,9 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
         exit;
     }
 
-    // Hapus file
-    if (isset($_POST['delete_file'])) {
-        $fileId = $_POST['file_id'];
+    // Menghapus File yang Terkait dengan Item
+    if (isset($_POST['delete_file'])) { //Mengecek apakah tombol "Hapus" telah ditekan untuk sebuah file.
+        $fileId = $_POST['file_id']; //Menyimpan ID file yang ingin dihapus dari form.
 
         // Ambil file path
         $fileToDeleteStmt = $conn->prepare("SELECT * FROM files WHERE id = :id AND item_id = :item_id");
@@ -111,6 +119,7 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
         <div class="card-body">
             <a href="dashboard.php" class="btn btn-secondary mb-4">← Kembali ke Dashboard</a>
 
+            <!-- Form untuk Edit Item -->
             <form method="post" enctype="multipart/form-data" class="mb-4">
                 <div class="mb-3">
                     <label for="title" class="form-label">Judul</label>
@@ -138,6 +147,7 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
             <?php if (empty($files)): ?>
                 <div class="alert alert-info mt-3">Belum ada file terkait item ini.</div>
             <?php else: ?>
+                <!-- Daftar File Terkait Item -->
                 <ul class="list-group">
                     <?php foreach ($files as $file): ?>
                         <li class="list-group-item d-flex justify-content-between align-items-center">

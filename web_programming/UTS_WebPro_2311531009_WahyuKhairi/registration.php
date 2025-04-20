@@ -1,20 +1,24 @@
 <?php
-// koneksi database
+
+// koneksi database 
 require_once 'db_connection.php'; 
 session_start();
 
-// Inisialisasi variabel
+// Inisialisasi variabel untuk menampung input an user dan pesan error dari status berhasil dan error dari 
+// database
 $nameErr = $emailErr = $passwordErr = $confirmPasswordErr = "";
 $name = $email = $password = $confirmPassword = "";
 $registrationSuccess = false;
 $registrationError = "";
 
-// Fungsi untuk sanitasi input
+// Fungsi untuk sanitasi input Membersihkan input dari spasi berlebih, backslash, 
+// dan karakter HTML yang bisa digunakan untuk XSS.
 function sanitizeInput($data) {
     return htmlspecialchars(stripslashes(trim($data)));
 }
 
-// Fungsi validasi password
+// Fungsi validasi password Fungsi ini memeriksa kekuatan password. 
+// Kalau ada kriteria yang tidak terpenuhi, akan dikembalikan pesan error.
 function validatePassword($password) {
     if (strlen($password) < 8) {
         return "Password minimal 8 karakter.";
@@ -31,9 +35,11 @@ function validatePassword($password) {
     return ""; // Tidak ada error
 }
 
-// Proses form saat disubmit
+// Proses form saat disubmit  melalui metode post 
 if ($_SERVER["REQUEST_METHOD"] == "POST") {
+
     // Validasi nama
+    // Cek apakah nama kosong. Jika tidak, divalidasi hanya boleh huruf dan spasi.
     if (empty($_POST["name"])) {
         $nameErr = "Nama harus diisi.";
     } else {
@@ -44,6 +50,7 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
     }
 
     // Validasi email
+    // Cek apakah email kosong. Jika tidak, divalidasi dengan filter format email.
     if (empty($_POST["email"])) {
         $emailErr = "Email harus diisi.";
     } else {
@@ -53,7 +60,8 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
         }
     }
 
-    // Validasi password
+    // Validasi password 
+    // Cek password tidak kosong dan validasi dengan fungsi sebelumnya.
     if (empty($_POST["password"])) {
         $passwordErr = "Password harus diisi.";
     } else {
@@ -62,6 +70,8 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
     }
 
     // Validasi konfirmasi password
+    // Pastikan konfirmasi password tidak kosong dan sama dengan password.
+
     if (empty($_POST["confirm_password"])) {
         $confirmPasswordErr = "Konfirmasi password harus diisi.";
     } else {
@@ -78,16 +88,20 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
             $hashedPassword = password_hash($password, PASSWORD_DEFAULT);
             $createdAt = date('Y-m-d H:i:s');
 
+
             // Query Insert menggunakan PDO
+            //  Jika semua input valid, hash password dan ambil waktu saat registrasi.
             $sql = "INSERT INTO users (username, email, password, created_at) VALUES (:name, :email, :password, :created_at)";
             $stmt = $conn->prepare($sql);
             
             // Bind parameters
+            // Siapkan query dengan parameter menggunakan PDO::prepare.
             $stmt->bindParam(':name', $name);
             $stmt->bindParam(':email', $email);
             $stmt->bindParam(':password', $hashedPassword);
             $stmt->bindParam(':created_at', $createdAt);
 
+            // Hubungkan variabel dengan parameter query
             if ($stmt->execute()) {
                 $registrationSuccess = true;
             } else {
@@ -100,6 +114,7 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
     }
 }
 ?>
+
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -125,11 +140,13 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
 <body>
     <div class="container">
         <div class="row justify-content-center">
-            <div class="col-md-6">
+            <div class="col-md-6"> 
                 <div class="card shadow-sm p-4">
                     <div class="card-body">
                         <h1 class="card-title text-center mb-4">Form Registrasi</h1>
 
+                        <!-- Jika Registrasi Berhasil -->
+                        <!-- Tampilkan pesan sukses registrasi dan link ke halaman login. -->
                         <?php if ($registrationSuccess): ?>
                             <div class="alert alert-success" role="alert">
                                 <h4 class="alert-heading">Registrasi Berhasil!</h4>
@@ -139,12 +156,15 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
                                 <a href="login.php" class="btn btn-success mt-3">Login ke akun Anda</a>
                             </div>
                         <?php else: ?>
+
+                            <!-- Tampilkan error jika ada masalah saat query ke database. -->
                             <?php if (!empty($registrationError)): ?>
                                 <div class="alert alert-danger" role="alert">
                                     <?php echo $registrationError; ?>
                                 </div>
                             <?php endif; ?>
 
+                            <!-- Form Input Nama-->
                             <form method="post" action="<?php echo htmlspecialchars($_SERVER["PHP_SELF"]); ?>">
                                 <div class="mb-3">
                                     <label for="name" class="form-label">Nama Lengkap</label>
@@ -152,11 +172,14 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
                                     <div class="invalid-feedback"><?php echo $nameErr; ?></div>
                                 </div>
 
+                                <!-- Form Input Email -->
                                 <div class="mb-3">
                                     <label for="email" class="form-label">Email</label>
                                     <input type="email" class="form-control <?php echo !empty($emailErr) ? 'is-invalid' : ''; ?>" id="email" name="email" value="<?php echo htmlspecialchars($email); ?>">
                                     <div class="invalid-feedback"><?php echo $emailErr; ?></div>
                                 </div>
+
+                                <!-- Form Input Password -->
 
                                 <div class="mb-3">
                                     <label for="password" class="form-label">Password</label>
@@ -173,12 +196,13 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
                                     </small>
                                 </div>
 
+                                <!-- Konfirmasi Password -->
                                 <div class="mb-3">
                                     <label for="confirm_password" class="form-label">Konfirmasi Password</label>
                                     <input type="password" class="form-control <?php echo !empty($confirmPasswordErr) ? 'is-invalid' : ''; ?>" id="confirm_password" name="confirm_password">
                                     <div class="invalid-feedback"><?php echo $confirmPasswordErr; ?></div>
                                 </div>
-
+                                
                                 <div class="d-grid">
                                     <button type="submit" class="btn btn-primary">Daftar</button>
                                 </div>

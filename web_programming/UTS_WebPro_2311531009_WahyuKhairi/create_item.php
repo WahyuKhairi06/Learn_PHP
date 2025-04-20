@@ -8,13 +8,17 @@ require_once 'db_connection.php';
 //     exit;
 // }
 
-$errors = [];
+$errors = [];  //Menyimpan pesan error saat validasi form gagal.
 $success = ''; // Definisikan $success dengan nilai kosong
 
+// Ambil data dari form input. Gunakan trim() untuk menghapus spasi depan-belakang.
+// Jika session user tidak tersedia, default user_id adalah 1 (fallback).
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $title = trim($_POST['title'] ?? '');
     $description = trim($_POST['description'] ?? '');
     $user_id = $_SESSION['loggedin_user']['id'] ?? 1; 
+
+    // Tentukan ekstensi file dan ukuran maksimum file yang diizinkan diupload.
     $allowedImages = ['image/jpeg', 'image/png', 'image/gif'];
     $allowedDocs = [
         'application/pdf', 
@@ -23,10 +27,12 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     ];
     $maxSize = 2 * 1024 * 1024; // 2MB
     
+    // Validasi input: jika kosong, masukkan pesan error ke array $errors.
     if (empty($title) || empty($description)) {
         $errors[] = "Judul dan Deskripsi wajib diisi.";
     }
 
+    // Simpan Item dan Upload File (jika tidak ada error)
     if (empty($errors)) {
 
         // Insert ke tabel items
@@ -36,27 +42,38 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             'description' => $description,
             'user_id' => $user_id
         ]);
+        // Query untuk menyimpan item ke tabel items.
 
         $item_id = $conn->lastInsertId();
+        // Ambil id dari item terakhir yang baru saja dimasukkan — penting untuk relasi file ke item tersebut.
 
         // Upload file kalau ada
         if (!empty($_FILES['files']['name'][0])) {
-            foreach ($_FILES['files']['name'] as $index => $name) {
+            foreach ($_FILES['files']['name'] as $index => $name) { //Cek apakah user memilih file untuk diupload. Lalu lakukan loop untuk tiap file.
+
+                // Ambil informasi per file: nama sementara, ukuran, jenis file (MIME type), dan status error.
                 $tmpName = $_FILES['files']['tmp_name'][$index];
                 $size = $_FILES['files']['size'][$index];
                 $type = mime_content_type($tmpName);
                 $error = $_FILES['files']['error'][$index];
 
-                if ($error === UPLOAD_ERR_OK) {
+                if ($error === UPLOAD_ERR_OK) { //Lanjutkan jika tidak ada error saat upload file.
+
+                    //Validasi tipe dan ukuran file serta buat folder baru untuk menyimpan file
                     if (($size <= $maxSize) && (in_array($type, $allowedImages) || in_array($type, $allowedDocs))) {
                         $ext = pathinfo($name, PATHINFO_EXTENSION);
                         $newName = uniqid() . "." . $ext;
                         $uploadDir = 'uploads/';
+
+                        //Buat folder uploads jika belum ada.
                         if (!is_dir($uploadDir)) {
                             mkdir($uploadDir, 0777, true);
                         }
+
+                        // Path lengkap lokasi file yang akan disimpan.
                         $path = $uploadDir . $newName;
 
+                        // Pindahkan file ke server, lalu simpan datanya ke tabel files.
                         if (move_uploaded_file($tmpName, $path)) {
                             $stmtFile = $conn->prepare("INSERT INTO files (item_id, filename, filepath, filetype, filesize, uploaded_at) VALUES (:item_id, :filename, :filepath, :filetype, :filesize, NOW())");
                             $stmtFile->execute([
@@ -67,6 +84,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                                 'filesize' => $size
                             ]);
                         }
+
+                    //Tambahkan pesan error jika file gagal diupload atau tidak valid.
                     } else {
                         $errors[] = "$name gagal diupload: File terlalu besar atau tipe tidak valid.";
                     }
@@ -76,6 +95,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             }
         }
 
+        // Jika tidak ada error, tampilkan pesan sukses dan redirect ke dashboard.
         if (empty($errors)) {
             $success = "Item berhasil ditambahkan."; 
             header("Location: dashboard.php");
@@ -121,6 +141,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                         </div>
                     <?php endif; ?>
 
+                    <!-- Form kirim ke halaman ini sendiri. enctype penting agar bisa upload file. -->
                     <form method="POST" enctype="multipart/form-data">
                         <div class="mb-3">
                             <label class="form-label">Judul</label>
@@ -134,7 +155,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
                         <div class="mb-3">
                             <label class="form-label">Upload Gambar / Dokumen</label>
-                            <input type="file" name="files[]" class="form-control" multiple onchange="previewFiles()">
+                            <!-- Input file dengan fitur multi-upload. Saat file dipilih, fungsi previewFiles() dipanggil. -->
+                            <input type="file" name="files[]" class="form-control" multiple onchange="previewFiles()">  
                             <div class="form-text">Format: JPG, PNG, GIF, PDF, DOC, DOCX | Maks 2MB/file</div>
                         </div>
 
@@ -158,11 +180,13 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
 <script>
     function previewFiles() {
-        const filePreviewContainer = document.getElementById('file-preview');
+        const filePreviewContainer = document.getElementById('file-preview'); //Mengambil elemen HTML dengan ID file-preview. Elemen ini digunakan untuk menampilkan pratinjau file.
         filePreviewContainer.innerHTML = ''; // Bersihkan preview sebelumnya
         
+        // Mendapatkan daftar file yang dipilih di input file (elemen <input type="file">). Properti .files memberikan array objek file yang dipilih oleh pengguna.
         const files = document.querySelector('input[type="file"]').files;
         
+        // Mengubah objek FileList (yang diperoleh dari .files) menjadi array sehingga kita bisa menggunakan .forEach() untuk iterasi pada setiap file.
         Array.from(files).forEach(file => {
             const reader = new FileReader();
 
@@ -176,6 +200,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                     filePreviewContainer.appendChild(img);
                 };
                 reader.readAsDataURL(file);
+                
             } else {
                 // Jika bukan gambar, tampilkan nama file
                 const fileName = document.createElement('div');
