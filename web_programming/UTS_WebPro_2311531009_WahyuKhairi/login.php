@@ -3,6 +3,10 @@
 session_start(); // Memulai sesi PHP (untuk menyimpan data login user nanti)
 require_once 'db_connection.php'; // Menghubungkan ke database (file ini berisi koneksi PDO)
 
+if (isset($_SESSION["loggedin_user"])) {
+    header("Location: dashboard.php");
+    exit;
+}
 
 $loginErr = ""; // Variabel untuk menyimpan pesan error login (jika ada)
 
@@ -20,7 +24,7 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
         $user = $stmt->fetch(PDO::FETCH_ASSOC); // Ambil hasil sebagai array asosiatif
 
 
-        if ($user && password_verify($password, $user['password'])) { //Verifikasi apakah user ditemukan dan password cocok dengan hash dari DB (menggunakan password_verify)
+        if ($user && password_verify($password, $user['password'])) { //Verifikasi apakah user ditemukan dan password cocok dengan hash 
             $_SESSION["loggedin_user"] = $user; // Simpan data user ke session
             header("Location: dashboard.php"); // Redirect ke halaman dashboard
             exit;

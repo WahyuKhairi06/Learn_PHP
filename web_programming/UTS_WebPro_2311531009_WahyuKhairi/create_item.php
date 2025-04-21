@@ -12,7 +12,7 @@ $errors = [];  //Menyimpan pesan error saat validasi form gagal.
 $success = ''; // Definisikan $success dengan nilai kosong
 
 // Ambil data dari form input. Gunakan trim() untuk menghapus spasi depan-belakang.
-// Jika session user tidak tersedia, default user_id adalah 1 (fallback).
+// Jika session user tidak tersedia, default user_id adalah 1 
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $title = trim($_POST['title'] ?? '');
     $description = trim($_POST['description'] ?? '');

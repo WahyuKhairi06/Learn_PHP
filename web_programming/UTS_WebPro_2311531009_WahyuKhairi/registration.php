@@ -4,21 +4,18 @@
 require_once 'db_connection.php'; 
 session_start();
 
-// Inisialisasi variabel untuk menampung input an user dan pesan error dari status berhasil dan error dari 
-// database
+// Inisialisasi variabel
 $nameErr = $emailErr = $passwordErr = $confirmPasswordErr = "";
 $name = $email = $password = $confirmPassword = "";
 $registrationSuccess = false;
 $registrationError = "";
 
-// Fungsi untuk sanitasi input Membersihkan input dari spasi berlebih, backslash, 
-// dan karakter HTML yang bisa digunakan untuk XSS.
+// Fungsi sanitasi
 function sanitizeInput($data) {
     return htmlspecialchars(stripslashes(trim($data)));
 }
 
-// Fungsi validasi password Fungsi ini memeriksa kekuatan password. 
-// Kalau ada kriteria yang tidak terpenuhi, akan dikembalikan pesan error.
+// Fungsi validasi password
 function validatePassword($password) {
     if (strlen($password) < 8) {
         return "Password minimal 8 karakter.";
@@ -32,14 +29,13 @@ function validatePassword($password) {
     if (!preg_match("/[0-9]/", $password)) {
         return "Password harus mengandung minimal 1 angka.";
     }
-    return ""; // Tidak ada error
+    return "";
 }
 
-// Proses form saat disubmit  melalui metode post 
+// Proses form
 if ($_SERVER["REQUEST_METHOD"] == "POST") {
 
     // Validasi nama
-    // Cek apakah nama kosong. Jika tidak, divalidasi hanya boleh huruf dan spasi.
     if (empty($_POST["name"])) {
         $nameErr = "Nama harus diisi.";
     } else {
@@ -50,7 +46,6 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
     }
 
     // Validasi email
-    // Cek apakah email kosong. Jika tidak, divalidasi dengan filter format email.
     if (empty($_POST["email"])) {
         $emailErr = "Email harus diisi.";
     } else {
@@ -60,8 +55,7 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
         }
     }
 
-    // Validasi password 
-    // Cek password tidak kosong dan validasi dengan fungsi sebelumnya.
+    // Validasi password
     if (empty($_POST["password"])) {
         $passwordErr = "Password harus diisi.";
     } else {
@@ -70,8 +64,6 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
     }
 
     // Validasi konfirmasi password
-    // Pastikan konfirmasi password tidak kosong dan sama dengan password.
-
     if (empty($_POST["confirm_password"])) {
         $confirmPasswordErr = "Konfirmasi password harus diisi.";
     } else {
@@ -81,36 +73,41 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
         }
     }
 
-    // Jika tidak ada error, simpan data ke database
+    // Jika semua validasi lolos
     if (empty($nameErr) && empty($emailErr) && empty($passwordErr) && empty($confirmPasswordErr)) {
-        try {
-            // Enkripsi password
-            $hashedPassword = password_hash($password, PASSWORD_DEFAULT);
-            $createdAt = date('Y-m-d H:i:s');
 
+        // [DITAMBAHKAN] Cek apakah email sudah terdaftar
+        $checkSql = "SELECT COUNT(*) FROM users WHERE email = :email"; // [DITAMBAHKAN]
+        $checkStmt = $conn->prepare($checkSql); // [DITAMBAHKAN]
+        $checkStmt->bindParam(':email', $email); // [DITAMBAHKAN]
+        $checkStmt->execute(); // [DITAMBAHKAN]
+        $emailExists = $checkStmt->fetchColumn(); // [DITAMBAHKAN]
 
-            // Query Insert menggunakan PDO
-            //  Jika semua input valid, hash password dan ambil waktu saat registrasi.
-            $sql = "INSERT INTO users (username, email, password, created_at) VALUES (:name, :email, :password, :created_at)";
-            $stmt = $conn->prepare($sql);
-            
-            // Bind parameters
-            // Siapkan query dengan parameter menggunakan PDO::prepare.
-            $stmt->bindParam(':name', $name);
-            $stmt->bindParam(':email', $email);
-            $stmt->bindParam(':password', $hashedPassword);
-            $stmt->bindParam(':created_at', $createdAt);
+        if ($emailExists) { // [DITAMBAHKAN]
+            $registrationError = "Akun sudah terdaftar."; // [DITAMBAHKAN]
+        } else { // [DITAMBAHKAN]
+            try {
+                $hashedPassword = password_hash($password, PASSWORD_DEFAULT);
+                $createdAt = date('Y-m-d H:i:s');
 
-            // Hubungkan variabel dengan parameter query
-            if ($stmt->execute()) {
-                $registrationSuccess = true;
-            } else {
-                $errorInfo = $stmt->errorInfo();
-                $registrationError = "Gagal menyimpan data: " . $errorInfo[2];
+                $sql = "INSERT INTO users (username, email, password, created_at) VALUES (:name, :email, :password, :created_at)";
+                $stmt = $conn->prepare($sql);
+
+                $stmt->bindParam(':name', $name);
+                $stmt->bindParam(':email', $email);
+                $stmt->bindParam(':password', $hashedPassword);
+                $stmt->bindParam(':created_at', $createdAt);
+
+                if ($stmt->execute()) {
+                    $registrationSuccess = true;
+                } else {
+                    $errorInfo = $stmt->errorInfo();
+                    $registrationError = "Gagal menyimpan data: " . $errorInfo[2];
+                }
+            } catch (PDOException $e) {
+                $registrationError = "Error: " . $e->getMessage();
             }
-        } catch (PDOException $e) {
-            $registrationError = "Error: " . $e->getMessage();
-        }
+        } // [DITAMBAHKAN]
     }
 }
 ?>
@@ -138,82 +135,73 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
     </style>
 </head>
 <body>
-    <div class="container">
-        <div class="row justify-content-center">
-            <div class="col-md-6"> 
-                <div class="card shadow-sm p-4">
-                    <div class="card-body">
-                        <h1 class="card-title text-center mb-4">Form Registrasi</h1>
+<div class="container">
+    <div class="row justify-content-center">
+        <div class="col-md-6"> 
+            <div class="card shadow-sm p-4">
+                <div class="card-body">
+                    <h1 class="card-title text-center mb-4">Form Registrasi</h1>
 
-                        <!-- Jika Registrasi Berhasil -->
-                        <!-- Tampilkan pesan sukses registrasi dan link ke halaman login. -->
-                        <?php if ($registrationSuccess): ?>
-                            <div class="alert alert-success" role="alert">
-                                <h4 class="alert-heading">Registrasi Berhasil!</h4>
-                                <p>Selamat datang, <strong><?php echo htmlspecialchars($name); ?></strong>! Akun Anda berhasil dibuat.</p>
-                                <hr>
-                                <p class="mb-0">Email: <?php echo htmlspecialchars($email); ?></p>
-                                <a href="login.php" class="btn btn-success mt-3">Login ke akun Anda</a>
+                    <?php if ($registrationSuccess): ?>
+                        <div class="alert alert-success" role="alert">
+                            <h4 class="alert-heading">Registrasi Berhasil!</h4>
+                            <p>Selamat datang, <strong><?php echo htmlspecialchars($name); ?></strong>! Akun Anda berhasil dibuat.</p>
+                            <hr>
+                            <p class="mb-0">Email: <?php echo htmlspecialchars($email); ?></p>
+                            <a href="login.php" class="btn btn-success mt-3">Login ke akun Anda</a>
+                        </div>
+                    <?php else: ?>
+                        <?php if (!empty($registrationError)): ?>
+                            <div class="alert alert-danger" role="alert">
+                                <?php echo $registrationError; ?>
                             </div>
-                        <?php else: ?>
-
-                            <!-- Tampilkan error jika ada masalah saat query ke database. -->
-                            <?php if (!empty($registrationError)): ?>
-                                <div class="alert alert-danger" role="alert">
-                                    <?php echo $registrationError; ?>
-                                </div>
-                            <?php endif; ?>
-
-                            <!-- Form Input Nama-->
-                            <form method="post" action="<?php echo htmlspecialchars($_SERVER["PHP_SELF"]); ?>">
-                                <div class="mb-3">
-                                    <label for="name" class="form-label">Nama Lengkap</label>
-                                    <input type="text" class="form-control <?php echo !empty($nameErr) ? 'is-invalid' : ''; ?>" id="name" name="name" value="<?php echo htmlspecialchars($name); ?>">
-                                    <div class="invalid-feedback"><?php echo $nameErr; ?></div>
-                                </div>
-
-                                <!-- Form Input Email -->
-                                <div class="mb-3">
-                                    <label for="email" class="form-label">Email</label>
-                                    <input type="email" class="form-control <?php echo !empty($emailErr) ? 'is-invalid' : ''; ?>" id="email" name="email" value="<?php echo htmlspecialchars($email); ?>">
-                                    <div class="invalid-feedback"><?php echo $emailErr; ?></div>
-                                </div>
-
-                                <!-- Form Input Password -->
-
-                                <div class="mb-3">
-                                    <label for="password" class="form-label">Password</label>
-                                    <input type="password" class="form-control <?php echo !empty($passwordErr) ? 'is-invalid' : ''; ?>" id="password" name="password">
-                                    <div class="invalid-feedback"><?php echo $passwordErr; ?></div>
-                                    <small class="form-text text-muted">
-                                        Password harus:
-                                        <ul>
-                                            <li>Minimal 8 karakter</li>
-                                            <li>Mengandung minimal 1 huruf besar</li>
-                                            <li>Mengandung minimal 1 huruf kecil</li>
-                                            <li>Mengandung minimal 1 angka</li>
-                                        </ul>
-                                    </small>
-                                </div>
-
-                                <!-- Konfirmasi Password -->
-                                <div class="mb-3">
-                                    <label for="confirm_password" class="form-label">Konfirmasi Password</label>
-                                    <input type="password" class="form-control <?php echo !empty($confirmPasswordErr) ? 'is-invalid' : ''; ?>" id="confirm_password" name="confirm_password">
-                                    <div class="invalid-feedback"><?php echo $confirmPasswordErr; ?></div>
-                                </div>
-                                
-                                <div class="d-grid">
-                                    <button type="submit" class="btn btn-primary">Daftar</button>
-                                </div>
-                            </form>
                         <?php endif; ?>
-                    </div>
+
+                        <form method="post" action="<?php echo htmlspecialchars($_SERVER["PHP_SELF"]); ?>">
+                            <div class="mb-3">
+                                <label for="name" class="form-label">Nama Lengkap</label>
+                                <input type="text" class="form-control <?php echo !empty($nameErr) ? 'is-invalid' : ''; ?>" id="name" name="name" value="<?php echo htmlspecialchars($name); ?>">
+                                <div class="invalid-feedback"><?php echo $nameErr; ?></div>
+                            </div>
+
+                            <div class="mb-3">
+                                <label for="email" class="form-label">Email</label>
+                                <input type="email" class="form-control <?php echo !empty($emailErr) ? 'is-invalid' : ''; ?>" id="email" name="email" value="<?php echo htmlspecialchars($email); ?>">
+                                <div class="invalid-feedback"><?php echo $emailErr; ?></div>
+                            </div>
+
+                            <div class="mb-3">
+                                <label for="password" class="form-label">Password</label>
+                                <input type="password" class="form-control <?php echo !empty($passwordErr) ? 'is-invalid' : ''; ?>" id="password" name="password">
+                                <div class="invalid-feedback"><?php echo $passwordErr; ?></div>
+                                <small class="form-text text-muted">
+                                    Password harus:
+                                    <ul>
+                                        <li>Minimal 8 karakter</li>
+                                        <li>Mengandung minimal 1 huruf besar</li>
+                                        <li>Mengandung minimal 1 huruf kecil</li>
+                                        <li>Mengandung minimal 1 angka</li>
+                                    </ul>
+                                </small>
+                            </div>
+
+                            <div class="mb-3">
+                                <label for="confirm_password" class="form-label">Konfirmasi Password</label>
+                                <input type="password" class="form-control <?php echo !empty($confirmPasswordErr) ? 'is-invalid' : ''; ?>" id="confirm_password" name="confirm_password">
+                                <div class="invalid-feedback"><?php echo $confirmPasswordErr; ?></div>
+                            </div>
+                            
+                            <div class="d-grid">
+                                <button type="submit" class="btn btn-primary">Daftar</button>
+                            </div>
+                        </form>
+                    <?php endif; ?>
                 </div>
             </div>
         </div>
     </div>
+</div>
 
-    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js"></script>
 </body>
 </html>
